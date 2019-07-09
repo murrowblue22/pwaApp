@@ -13,13 +13,14 @@ var imagePickerArea = document.querySelector('#pick-image');
 var picture; 
 var locationBtn = document.querySelector('#location-btn');
 var locationLoader = document.querySelector('#location-loader');
-var fetchedLocation;
+var fetchedLocation = {lat: 0, lng: 0};
 
 locationBtn.addEventListener('click', function(event) {
   if (!('geolocation' in navigator)) {
     return; 
   }
-  
+  var sawAlert = false;
+
   locationBtn.style.display = 'none';
   locationLoader.style.display = 'block';
 
@@ -37,8 +38,12 @@ locationBtn.addEventListener('click', function(event) {
     console.log(err);
     locationBtn.style.display = 'inline';
     locationLoader.style.display = 'none';
-    alert('Couldn\'t fetch location, please enter manually!');
-    fetchedLocation = {lat: null, lng: null}; 
+    if(!sawAlert) {
+      alert('Couldn\'t fetch location, please enter manually!');
+      sawAlert = true; 
+    }
+    
+    fetchedLocation = {lat: 0, lng: 0}; 
   }, {timeout: 7000});
 });
 
@@ -66,11 +71,22 @@ function initializeMedia() {
         });
       }
     }
+    var constraints = {
+      audio: false,
+      video: {
+        width: { min: 409, max: 409 },
+        height: { min: 409, max: 409},
+      },
+    };
 
-    navigator.mediaDevices.getUserMedia({video: true})
+
+    navigator.mediaDevices.getUserMedia(constraints)
       .then(function(stream) {
-          videoPlayer.srcObject = stream;
-          videoPlayer.style.display = 'block';
+        
+        videoPlayer.srcObject = stream;
+        videoPlayer.style.display = 'block';
+        //videoPlayer.style.transform = 'rotate(-90deg)';
+        console.log(stream); 
       })
       .catch(function(err) {
         imagePickerArea.style.display = 'block'; 
@@ -82,11 +98,15 @@ captureButton.addEventListener('click', function(event) {
     videoPlayer.style.display = 'none';
     captureButton.style.display = 'none';
     var context = canvasElement.getContext('2d');
+    //context.setTransform(1, 0, 0, 1, 0, canvas.width);
+    //context.rotate(-90 * Math.PI / 180);
     context.drawImage(videoPlayer, 0, 0, canvas.width, videoPlayer.videoHeight / (videoPlayer.videoWidth / canvas.width));
     videoPlayer.srcObject.getVideoTracks().forEach(function(track) {
       track.stop();
     }); 
     picture = dataURItoBlob(canvasElement.toDataURL()); 
+
+    console.log("picture is ", picture); 
 }); 
 
 imagePicker.addEventListener('change', function(event) {
@@ -96,7 +116,10 @@ imagePicker.addEventListener('change', function(event) {
 function openCreatePostModal() {
   //createPostArea.style.display = 'block';
   //setTimeout(function() {
-    createPostArea.style.transform = 'translateY(0)';
+    
+   // setTimeout(function () {
+      createPostArea.style.transform = 'translateY(0)';
+    //}, 1);
     initializeMedia(); 
     initializeLocation();
   //}, 1); 
@@ -128,12 +151,20 @@ function openCreatePostModal() {
 }
 
 function closeCreatePostModal() {
-  createPostArea.style.transform = 'translateY(100vh)'; 
   imagePickerArea.style.display = 'none';
   videoPlayer.style.display = 'none';
   canvasElement.style.display = 'none';
   locationBtn.style.display = 'inline';
   locationLoader.style.display = 'none';
+  captureButton.style.display = 'inline'; 
+  if (videoPlayer.srcObject) {
+    videoPlayer.srcObject.getVideoTracks().forEach(function(track) {
+      track.stop(); 
+    }); 
+  }
+  setTimeout(function() {
+    createPostArea.style.transform = 'translateY(100vh)'; 
+  }, 1); 
 }
 
 shareImageButton.addEventListener('click', openCreatePostModal);
@@ -164,7 +195,7 @@ function createCard(data) {
   cardWrapper.className = 'shared-moment-card mdl-card mdl-shadow--2dp';
   var cardTitle = document.createElement('div');
   cardTitle.className = 'mdl-card__title';
-  cardTitle.style.backgroundImage = `url(${data.image})`;
+  cardTitle.style.backgroundImage = "url("+ data.image + ")";
   cardTitle.style.backgroundSize = 'cover';
   //cardTitle.style.height = '180px';
   cardWrapper.appendChild(cardTitle);
@@ -248,6 +279,10 @@ form.addEventListener('submit', function(event) {
       return; 
     }
 
+    if(!picture) {
+      alert('Please take a photo!!!'); 
+    }
+
     closeCreatePostModal();
 
     if ('serviceWorker' in navigator && 'SyncManager' in window) {
@@ -257,7 +292,7 @@ form.addEventListener('submit', function(event) {
               id: new Date().toISOString(),
               title: titleInput.value, 
               location: locationInput.value, 
-              picture, 
+              picture: picture, 
               rawLocation: fetchedLocation
             };
             writeData('sync-posts', post)
