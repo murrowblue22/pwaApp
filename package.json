@@ -20,7 +20,7 @@
   "author": "murrow",
   "license": "ISC",
   "devDependencies": {
-    "http-server": "^0.11.1",
+    "http-server": "^0.11.2",
     "uglify-js": "^3.6.0",
     "workbox-cli": "^2.1.3"
   }
